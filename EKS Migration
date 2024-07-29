@@ -1,0 +1,24 @@
+Operational benefits
+Improving our DORA metrics (faster deployment frequency, lower change failure rate, shorter cycle time).
+
+Docker local development model is easier to onboard and more consistent between developers.
+
+Support the 3WS (third workstream) via secondary pod deployments to the staging EKS cluster.
+
+Create more complex CI automations (i.e. trigger e2e test suite when upstream systems are deployed).
+
+Technical benefits
+A “batteries-included” approach to getting all of the infrastructure goodies such as monitoring + observability, alerting, self-healing, patching, security hardening via AWS EKS.
+
+Remove the need for quarterly rebuilds + patching and improve risk posture of apps by using “alpine” images.
+
+Remove bottleneck on operating system for developers to upgrade tech stack (i.e. upgrading Node versions).
+
+Simplify tech stack by reducing total number of infrastructure resources we own (Cloud Engineering will own and manage the EKS cluster).
+
+Other considerations
+Kubernetes workloads allow for much greater fine-tuning of resource requirements (compute + memory) and introduces the ability to quickly autoscale pods based on requests or compute limits.
+
+This would reduce the overall cost of running our infrastructure and improve bottlenecks (such as when one BC publishes too many messages to MQ).
+
+GitLab would be a simpler one-stop-shop platform for visibility into source code, merge requests and reviews, build pipelines, and test result
