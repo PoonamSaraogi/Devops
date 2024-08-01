@@ -1,0 +1,76 @@
+AWS Route 53 Cheat Sheet
+Overview
+Route 53 is a scalable and highly available Domain Name System (DNS) web service designed to route end-user requests to internet applications.
+
+Key Features:
+
+DNS Management: Manage DNS records and routing of internet traffic.
+Traffic Management: Balance traffic loads, route users to closest resources.
+Domain Registration: Register new domains directly.
+Availability Monitoring: Check endpoint health and route traffic accordingly.
+Global Service: Operates globally, not region-specific.
+IPv6 Support: Fully supports IPv6 addresses.
+DNS Resolution Flow
+
+
+User Query: User's DNS resolver sends a query.
+Root Server: Directs query to appropriate TLD (.com, .org, .in, etc.).
+TLD Server: Points to the domain's authoritative nameserver
+Nameserver: Provides the corresponding IP address.
+User Machine: Receives the IP address and connects to the website.
+
+
+Domain Levels
+Generic Level Domains: .com, .org, .net
+Geographic Level Domains: .in, .us, .uk
+
+
+Integration with GoDaddy
+Name Servers: Use unique nameservers from Route 53.
+GoDaddy Setup: Update GoDaddy with AWS nameservers.
+Hosted Zones: Create a hosted zone in AWS if the domain is from GoDaddy. If the domain is from AWS, the hosted zone is created automatically.
+Hosted Zones
+Limits: 500 hosted zones per account, 10,000 records per hosted zone (increased by request).
+Types: Public (accessible globally) and Private (within a VPC).
+Components:
+Name Server (NS): Unique nameservers.
+Start of Authority (SOA): Contains hosted zone information.
+Note: Do not edit NS or SOA records.
+
+Record Types
+A Record: Maps domain name to IPv4 address.
+AAAA Record: Maps domain name to IPv6 address.
+CNAME: Maps alias to a domain name (for subdomains, not root domains).
+NS Record: Specifies nameservers.
+MX Record: Mail exchange record.
+SOA Record: Provides authoritative information about the domain.
+
+
+
+Routing Policies
+Simple Routing: Default routing without additional configuration.
+Failover Routing: Primary and backup resources for high availability.
+Geolocation Routing: Directs traffic based on user location.
+Multi-value Answer Routing: Supports up to 8 IP addresses for load balancing.
+Latency-based Routing: Routes to the lowest latency endpoint.
+Weighted Routing: Distributes traffic based on specified weights.
+Geo Proximity Routing: Routes traffic based on geographic location, can shrink or expand regions.
+
+
+Additional Considerations
+Domain Transfer: Changing registrar from GoDaddy to AWS can take up to 48 hours.
+Account Transfer: Hosted zones can't be transferred between accounts; only domains can.
+
+
+Commands and Checks
+NSLookup: Check NS records and get IP addresses.
+WHOIS: Verify domain information and registrar details.
+By using Route 53, you can efficiently manage your domain's DNS records, ensure high availability, and optimize traffic routing for your applications.
+
+
+
+
+
+
+
+
