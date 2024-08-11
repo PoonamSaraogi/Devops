@@ -1,0 +1,569 @@
+Architecture:
+Kubernetes consists of a master node, and several worker nodes. It is in the worker nodes that the actual applications are deployed. Think of Nodes as actual physical servers or virtual machines with dedicated CPU, RAM etc.
+
+The worker node consists of following components:
+a) Kubelet: This is the main component of worker node, responsible for actual orchestration of the containers. It interfaces with both Node and the Containers, and assigns the necessary resources and converts the complex yaml files to actual pods with applications running on top of it.
+
+b) Kube-Proxy: To communicate with different Pods, an abstraction called Service is used. To implement Services, it is Kube-Proxy which is responsible for routing traffic to the appropriate Pod based on IP and port number of the incoming request. It also has intelligent routing, meaning it forwards to the appropriate replica to lower network overhead.
+
+c) Container-Runtime: This is the implementation of Container software that is responsible for running the containers. Think of it as the software driver, that enables creation of containers.
+
+
+The master node consists of following components:
+a) API Server: Acts as a cluster gateway, that gets all the internal and external requests to Kubernetes cluster. Any requests made to Kubernetes cluster, orchestration changes (eg: creation of new service), authentication etc. are made via API Server.
+
+b) Scheduler: It is responsible for starting worker Pods in one of the worker nodes. It has all the information regarding the nodes such as resource usage, user constraints (eg: disk == ssd only), qos parameters etc, and based on that, it does the intelligent scheduling so that no one node is overloaded. Do note that it is the task of Kubelet to actually start the application. Scheduler is only responsible for scheduling alone.
+
+
+c) Controller: It is responsible for tracking state changes to the cluster. It achieves this by running something called “non terminating control loops”. In a control loop, Controller continuously monitors the the current state of the objects using API server. If it does not meet the desired state (as given by Kubernetes manifests such as deployments), then the control loop takes corrective steps to make sure that the current state is the same as the desired state. So for example, a replication controller will continuously monitor for desired state (2 replicas) using controller, and if current state doesn’t meet the desired state (one replica goes down), it automatically create extra pods to meet the desired state.
+
+d) etcd: Key-value store which stores all the state changes to this. It essentially stores the configuration details (subnets, secret keys etc.) and cluster state information (which pods are up, master, slave etc.). Think of etcd as a master database which is updated by API Server if any state is changed (eg: new pods created) and used by Controller to track state changes (to match the desired state and current state).
+
+
+
+Kubernetes Networking:
+The fundamental concept behind Kubernetes networking is that every Pod has its unique IP address, and it must be reachable through all other Pods.
+
+Container to Container communication: Pods are the lowest unit of scheduling in Kubernetes. As pods have same global IP address, containers inside the pods use localhost (shared namespace) and port combo to communicate. Eg: localhost:80 and localhost:8080. Their IPs are localhost. Kubernetes creates a new container called “pause” container, whose job is to create this shared network stack (localhost), on which every container inside a pod connects, but uses different ports.
+
+Container to Container communication
+Pod to Pod communication:
+– If same Nodes: If two pods are scheduled on the same node, Pods use virtual bridges (provided by Docker or any other container technology, generally named cbr0) to communicate with each other. Pods have their virtual interface, which routes to the virtual bridge, and a simple L2 switching happens for inter-node Pod to Pod communication.
+– If different nodes: The initial routing will happen as per previous mechanism, i.e packet will leave Pod to virtual bridge, then on not getting any response, it will go to the L3 routing, which in this case would be a routing table and a default gateway (provided by Cloud or your server network) to route the packets. One important thing to note is that
+
+Pod to pod communication
+Node to Node communication: Nodes are actual machines or VMs running the pods. As Kubernetes system has no NATing between nodes, all nodes exist in the same network range. Their communication mechanism is same as communication between two VMs, i.e using default gateways.
+Pod to Service communication: This communication happens with the help of service routing tables that are maintained by kube-proxy running on each worker node, which listens to API server on master node for updates. It is responsibility of kube-proxy to map service IP, which is kind of virtual IP, to the set of Pods and their IP addressees. Hence, when you make requests to one endpoint (domain name/IP address), the kube-proxy proxies requests to a pod in that service.
+How IPs are allocated:
+Node IPs are provided by a system external to Kubernetes, eg: Cloud Provider.
+Container IPs are provided by virtual bridges, using the underlying kernel (RFC1918 to be precise).
+Pod IPs are allocated by kubernetes system, which follows “ip-per-pod” model, and groups these containers into localhost namespace and provides a single ip to access them.
+Service IPs are provided from a different “Service network (clusterIP)”. Kubernetes groups pods into services, and provide ip address from their own internal namespace.
+
+
+Deep Dive of how actual routing is done to Pods using services:
+Pod IPs are usually in the range of 10.x.x.x, and Service IPs are in the range of 172.x.x.x. So how does this translation of IP address happens from Service to Pods? This happens using two modules called Netfilter and IPtables.
+
+Netfilter: it is a kernel level proxy, that has full access to the packets’ destination and source headers, and can modify the destination (among other things) based on a set of rules.
+IpTables: Firewall of linux, the rulebook which netfilter uses.
+What happens is that kube-proxy runs on every node’s actual physical interface (eth0), and uses the node’s Netfilter and IpTables module to route the traffic of services to the correct pods. So the translation of 172.x.x.x converting to 10.x.x.x happens at actual node’s physical interface of eth0 by kube-proxy at a kernel level using netfilter and iptables module.
+
+
+Service to Pod communication using Kube-Proxy
+Network Policies: A mechanism to control traffic
+Kubernetes provides a component called Network Policy which allows control of traffic flow at the IP address or port level (OSI layer 3 or 4). Network policies are implemented by something called network plugin such as Calico, Weave etc. These plugins provide the Controller which helps in implementing the traffic restrictions as given by networking policies.
+
+A sample networking policy would look like below:
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: test-network-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: 172.17.0.0/16
+        except:
+        - 172.17.1.0/24
+    - namespaceSelector:
+        matchLabels:
+          project: myproject
+    - podSelector:
+        matchLabels:
+          role: frontend
+    ports:
+    - protocol: TCP
+      port: 6379
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 10.0.0.0/24
+    ports:
+    - protocol: TCP
+      port: 5978
+Services:
+Why services are needed?
+Pods are ephemerals, meaning their IP address gets frequently lost and assigned a new one once they are destroyed and recreated. Same like VMs. Hence, Services provide the abstraction or a stable virtual IP interface to access the Pods. Think of it as Elastic IP in VM world.
+
+Additionally, services also provide intelligent loadbalancing. Meaning, if there are 3 replicas of your application running in 3 pods, services does the internal load balancing to forward it to one of the three pods.
+
+Labels, Selectors and Endpoint Objects — How services know which Pods to Target:
+Services uses something called Labels and Selectors to target the Pods. Labels are key-value pairs that are used for logical groupings and are assigned to Kubernetes objects such as pods. Selectors are used to target the objects which have the assigned labels.
+
+Labels and selectors are very useful in service definitions, as using selectors and labels, a service is able to map the pods using something called endpoints objects. Every time a service is created, an equivalent Endpoint object is created of the same name. It is through these endpoints that Kubernetes tracks which Pods are part of the service. Endpoints keep getting updated as Pods IP address changes, hence keeping track of the Pods.
+
+If there are multiple Pods with same label, service does the intelligent load balancing to select the Pod. Do note that there are advanced selector mechanisms using equality and set based. Details of which can be found in the official documentation here.
+
+
+Services without selectors: It is not mandatory to use selectors for services. If selectors are not used, then the corresponding Endpoints object is not created automatically. Hence, you would need to manually map the Service to the network address and port where it’s running, by adding an Endpoints object manually. This is usually done for testing backend or when services are in another namespace. Eg yaml:
+
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: my-service
+subsets:
+  - addresses:
+      - ip: 192.0.2.42
+    ports:
+      - port: 9376
+In this case, traffic is routed to a single endpoint with IP: 192.0.2.42.
+
+Types of Services:
+ClusterIP:
+– Default type, also called internal service. It is internal to cluster only. Hence, to access this from outside cluster, you would need other resource such as Ingress.
+– It is most commonly used for Inter service communication within the cluster. For example, communication between the front-end and back-end components of your app.
+The below spec creates a new Service object named “my-service”, which targets TCP port 9376 on any Pod with the app=MyApp label:
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: MyApp #targets the label of the Pod
+  ports:
+    - protocol: TCP
+      port: 80 #the port in which you expose the service. It is arbitrary, and can be optional.
+      targetPort: 9376 #the port in which Pod is running
+If we want to use multiple ports in the above code, for example in Pods which are running two containers on different ports, we can use Multi-Ports, by assigning -name before every port assignment. So the above code would look like this for a Pod deployment that is running application1 on 27017 and application2 on 9216.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: MyApp #targets the label of the Pod
+  ports:
+    - name: application1
+      protocol: TCP
+      port: 27017 
+      targetPort: 27017 
+    - name: application2
+      protocol: TCP
+      port: 9216 
+      targetPort: 9216
+Multi-port scenarios are common in logging and monitoring, when we need to run sidecar containers to scrape metrics. The above service will create a clusterIP service that has two ports exposed, targeting two different containers.
+
+Headless Service:
+– Traditionally, every request to Service is forwarded to one of the randomly selected endpoints that points to the Pod IP address.
+– However, if the use-case is to reach a particular Pod directly, for eg: reaching master node of a database statefulsets, we would then need to bypass the ClusterIP of the service altogether.
+– This is where Headless service allows us to get all the pods IP addresses through DNS lookup (an alternate non efficient approach is to reach API server directly).
+– Normally, any DNS lookup to service returns the Service’s clusterIP, using which we reach the randomly selected endpoint and hence the Pods.
+– But, if we put “None” in clusterIP of service spec, the Service does not get any IP address assigned, and any dns lookup would give us the all the endpoints, and hence, all the Pods IP address.
+– Simply put, Headless service does not use kube-proxy to proxy your request to Pods. Eg:
+
+No ClusterIP assigned to headless service
+# Defining Headless service
+apiVersion: v1
+kind: Service
+metadata:
+  name: headless-svc
+spec:
+  clusterIP: None # setting clusterIP to None
+  selector:
+    app: web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+#=> nslookup regular-svc
+Server:     10.96.0.10
+Address:    10.96.0.10#53
+Name:   regular-svc.moon.svc.cluster.local
+Address: 10.109.150.46
+#=> nslookup headless-svc
+Server:     10.96.0.10
+Address:    10.96.0.10#53
+Name:   headless-svc.moon.svc.cluster.local
+Address: 172.17.0.31
+Name:   headless-svc.moon.svc.cluster.local
+Address: 172.17.0.30
+Name:   headless-svc.moon.svc.cluster.local
+Address: 172.17.0.32
+NodePort:
+– This is part of the services that exposes your internal service (ClusterIP) to the outside world. NodePort service does this by exposing the internal service to a static fixed port on the Node’s IP address.
+– Hence, you can connect with your service from outside the cluster, by accessing traffic in <NodeIP>:<NodePort>.
+– Do note that NodePort service is an extension of ClusterIP service. A ClusterIP Service, to which the NodePort Service routes, is automatically created.
+– Additionally, the most common use-case of NodePort service is when you are setting up your own load balancing solution, or configuring services in a custom environment.
+– However, the drawback is that you are essentially exposing your entire Node on a port, hence creating a security vulnerability. Eg Yaml:
+
+NodePort service
+What happens if Pods spawn all nodes? In that case, NodePort service spawns in all the nodes nodes, and creates ports in every node. Eg:
+
+
+Loadbalancer:
+– To prevent exposing your entire Node, this service integrates NodePort with cloud-based load balancers, and hence exposes the Service externally using a load balancer.
+– Loadbalancer service automatically creates NodePort and ClusterIP service. Hence, traffic goes to the NodePort via Loadbalancer, preventing any exposure of the Node’s IP and port.
+– Do note, that for each service, a new Loadbalancer would be created. Hence, it could create a fleet of loadbalancers if there are multiple services. This drawback can be addressed using Ingress.
+Ingress:
+Ingress is actually not a service, but a mechanism by which we expose multiple internal services using a single IP address and use routing rules to access them. So for eg: abc.com/login would point to one service, abc.com/checkout would point to another. It is analogous to using API Gateway or Reverse Proxy.
+
+Additionally, Ingress also provides SSL/TLS termination just like API Gateway. Do note that to expose traffic other than HTTP or HTTPS, Nodeport or Loadbalancer would be better suited, as Ingress never exposes arbitrary ports or protocols.
+
+
+Ingress provides a set of routing rules, that maps the domain to the internal service
+The above shared Ingress map could be implemented by the following YAML:
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: simple-fanout-example
+spec:
+  rules:
+  - host: foo.bar.com 
+    http:
+      paths:
+      - path: /foo
+        pathType: Prefix 
+        backend:
+          service:
+            name: service1
+            port:
+              number: 4200
+      - path: /bar
+        pathType: Prefix
+        backend:
+          service:
+            name: service2
+            port:
+              number: 8080
+Important fields:
+
+name: Should be a valid DNS sub-domain name. This maps the entrypoint IP to the domain. The entrypoint could be the Node’s IP, or the Loadbalancer domain.
+Host: The actual URL that is typed for the request that would be evaluated. Specify multiple host fields to route to multiple hosts, this enables name based virtual hosting.
+Paths: The actual mapping of resources to the backend service. Use multiple paths for multiple mappings.
+PathType: This denotes how the mapping of paths should be. There are three Pathtypes: ImplementationSpecific (depends on IngressClass object), Exact (case sensitive exact matching) and the most common: Prefix (matches with “/” in the URL).
+Backend: The backend service where the Ingress should route the request to. Includes Service Port and Name.
+Default Backend: If there are no rules that match the Ingress yaml paths, the request is forwarded to a configured default backend. It is generally a configuration option of Ingress Controller, and is not specified in the Ingress YAML.
+
+The most common use-case of default backend is to create a service with the same name and port as default backend, and point the service to a dummy application that returns custom error messages. This would ensure that any invalid rule matches would give us custom error messages.
+
+Default Host: If you create an Ingress resource without any hosts defined in the rules, then any web traffic to the IP address of your Ingress controller can be matched without a name based virtual host being required. Eg yaml:
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: name-virtual-host-ingress-no-third-host
+spec:
+  rules:
+  - host: first.bar.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: service1
+            port:
+              number: 80
+  - host: second.bar.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: service2
+            port:
+              number: 80
+  - http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: service3
+            port:
+              number: 80
+The above Ingress routes traffic requested for first.bar.com to service1, second.bar.com to service2, and any traffic whose request host header doesn't match first.bar.com and second.bar.com to service3.
+
+Do note: Default host is for virtual based name hosting. Default backend is for path matching.
+
+Ingress Controller:
+To implement Ingress, Ingress Controller is used. Think of Ingress Controller as a Controller Pod which implements Ingress Routing rules to every request. It reads the Ingress yaml and evaluates all the rules, manages redirections, and manages the entrypoint to the cluster.
+
+Traffic Flow: The entrypoint depends on the environment. In public cloud like AWS, a load balancer is used. In bare metal setup, a separate proxy server could be configured. Hence, the request would first hit the managed entrypoint by the Ingress Controller. The request would then be forwarded to Ingress Controller itself, which will evaluate the rules and redirect the traffic accordingly to the internal services. A list of supported Ingress Controller is referenced here.
+
+
+Annotations and IngressClass: You can implement multiple Ingress Controllers using something called IngressClass object. A IngressClass resource contains additional configuration including the name of the controller that should implement the class. A sample Yaml is given below:
+
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: external-lb
+spec:
+  controller: example.com/ingress-controller
+  parameters:
+    apiGroup: k8s.example.com
+    kind: IngressParameters
+    name: external-lb
+Additionally, if you would want to configure some minute option of Ingress Controller implementation, you could use annotations. For example, if you would want SSL redirection, for nginx-controller, you could use nginx.ingress.kubernetes.io/force-ssl-redirect annotation. A sample YAML which contains both IngressClass and Annotation implementation is given below:
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minimal-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/force-ssl-redirect: True
+spec:
+  ingressClassName: nginx-example
+  rules:
+  - http:
+      paths:
+      - path: /testpath
+        pathType: Prefix
+        backend:
+          service:
+            name: test
+            port:
+              number: 80
+Implementing TLS:
+So far, the requests from client to LoadBalancer or any Ingress Controller entrypoint are plain HTTP. What if you would want to secure those requests using HTTPS? Kubernetes provides a mechanism to specify TLS certificates to secure HTTPS requests by specifying a Secret that contains a TLS private key and certificate. Do note that traffic to the Service and its Pods is in plaintext. All other HTTPS requests always terminate at Ingress Entrypoint at port 443.
+
+The TLS secret must contain keys named tls.crt and tls.key that contain the certificate and private key to use for TLS. Do note that the namespace should match the one where Ingress is placed, as Ingress can’t reference secrets in another namespace. Eg Yaml:
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: testsecret-tls
+  namespace: default 
+data:
+  tls.crt: base64 encoded cert
+  tls.key: base64 encoded key
+type: kubernetes.io/tls
+This secret is referenced in following way:
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tls-example-ingress
+spec:
+  tls:
+  - hosts:
+      - https-example.foo.com
+    secretName: testsecret-tls
+  rules:
+  - host: https-example.foo.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: service1
+            port:
+              number: 80
+Implementing Databases: Statefulsets
+Firstly, do note that it is never recommended to implement databases in Kubernetes. This is because Pods are ephermal in nature, hence the databases would keep coming up and down because of this.
+
+Implementing databases are really complex, with Operators and CRDs being involved. That being said, it is fine to implement stateful sets as long the application is container aware. This means that the application does not write to hard coded locations and is restart resistant. Additionally, the operators should know how to run the stateful sets (depending on the type).
+
+Stateful vs Stateless applications:
+A detailed difference between stateful and stateless application could be found here. The most important difference is that stateless application does not store its state between requests. Hence, every request is independent of its previous state, and the application acts as a passthrough for any data query update. Example: a nodeJS User Interface. Stateful applications are dependent on its previous state to process its request. Example: a cart checkout application needs to store state to display the cart information.
+
+
+The Frontend here is Stateless, the Database is stateful
+Stateless applications are deployed using Deployments. Stateful applications are deployed using Statefulsets.
+
+Persistent Volume and Persistent Volume Claim:
+To store the state information, a storage mechanism is needed. Kubernetes implements this using something called Persistent Volume (PV), Persistent Volume Claim (PVC) and Storage Class.
+
+The requirement of storage solution is simple: the storage should not be dependent on Pod lifecycle (so a new Pod should be able to access same storage), must be available on all nodes (as we don’t know which node the Pod gets scheduled), and should survive cluster crash.
+
+Think of Persistent Volume as actual allocation of storage. Hence, PVs are actual resources created on the cluster just like a node. Naturally, the spec YAML depends on the type of storage and cloud provider. It would be different for AWS EBS storage or a NFS storage. Do note that PVs are cluster wide and are not namespace scoped. This is to ensure storage is distributed across all nodes and available to other namespaces. A list of different Volumes supported by Kubernetes could be referenced here.
+
+Persistent Volume Claims (PVC) are claim to those resources just as Pods are claim to Node’s resources. A PVC specifies the storage requirements and access mode, and if the volume exists for that PVC, that storage (represented by PV) is mounted to the Pod first using “volumes” keyword, and then to the container using “volumeMounts” keyboard. Do note that multiple volumes could be specified and mounted as long as the appropriate PVs exist for them. Eg Yaml in Spec section of Deployment:
+
+spec:                                        
+      containers:
+        - image: postgres:latest                  
+          name: postgres
+          ports:
+            - containerPort: 5432                  
+              name: postgres
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgres-persistent-storage
+            - mountPath: /var/lib/data
+              name: es-persistent-storage
+# Specifying multiple Volumes which are then mounted to containers in the above defined path. Note that the name should match the name specified in `volumes.name` given below
+volumes:                                      
+        - name: postgres-persistent-storage
+          persistentVolumeClaim:
+            claimName: postgres-pv-claim
+        - name: es-persistent-storage
+          persistentVolumeClaim:
+            claimName: es-pv-claim
+# Specifying multiple volumes that are mounted to Pods. These volumes access the storage using claims as given in the "claimName" section defined above.
+Hence, a Pod requests storage using PVC, and the storage resources defined in the actual Node machine is then accessed using PV via PVC. Think of PVC as a user requesting storage. Think of PV as administrators allocating storage. This level of abstractions ensures that storage is safe and developers need to be concerned with actual administrator task of maintaining storage resources.
+
+
+The PV and PVC abstraction
+Storage Class:
+So far, PV needs to be created manually before being claimed by PVC. But what if the requirements are for hundreds of PVs to be created and claimed by PVC. It would put a huge overload on cluster administrators. This is where Storage classes come into picture.
+
+Storage classes enable Dynamic provisioning of storage or PV whenever PVC puts a claim. It does so by specifying “provisioner” attribute. It takes the volume backend value specific to different providers such as AWS etc.
+
+To request for storageClass object when using PVC, just use “storageClassName” attribute and specify the storageClass name.
+
+ConfigMaps vs Secrets:
+These are not part of PV or PVC, but are managed by Kubernetes itself as part of local storage solution. They are mounted in the same way as PV and PVC are mounted, by first mounting in Pod volume, and then in Container volume under “spec” section.
+
+ConfigMaps are used to store configuration information such as database URL, Hostname etc. Secrets are used to store sensitive information such as passwords, certificates etc.
+
+The most important difference between them is that Secrets always store information in base64 encoded format. So you can’t open a secret file and view the information. ConfigMaps store the information in plain-text.
+
+Eg: If you do kubectl describe secret <secretname>, you would see output like below:
+
+...
+Data
+====
+password:  16 bytes
+...
+As from the output, the password field value is not visible. Only Key is visible.
+
+Whereas, if you do kubectl describe configmap <configmapname>, you would see output like below:
+
+...
+Data
+====
+max_allowed_packet.cnf:
+----
+[mysqld]
+max_allowed_packet = 64M
+Events:  <none>
+...
+As from the output, entire Key-Value pair are visible in plaintext. This is the major difference.
+
+However, there is a way to decode secret information. Use edit secret command: kubectl edit secret <secretname>, and you would get output like below:
+
+apiVersion: v1
+data:
+  password: S3ViZXJuZXRlc1JvY2tzIQ==
+kind: Secret
+...
+Here, you can simply base64 decode the value of the password to get actual password. Eg: openssl enc -base64 -d <<< S3ViZXJuZXRlc1JvY2tzIQ== will give output: KubernetesRocks!%, which is our password in plain text!
+
+Hence, it is recommended to use 3rd party providers such as Vault to store secrets. This will ensure that sensitive information is fetched securely via API calls and not stored locally that could be decoded.
+
+Deployments vs Stateful Sets:
+The most important difference between Deployments and Stateful Sets is that Statefulsets always have sticky identities, whereas Deployment identities are random and can change. A complete list of differences is given below:
+
+
+Deployments vs Statefulsets
+Statefulsets implement this sticky identity in two ways:
+
+Predictable Pod Names: Statefulsets have fixed ordered name in the form of: ${statefulset-name}-{ordinal}. Eg: mysql-0.
+2 Pod endpoints: Statefulsets have additional fixed DNS sub-domain endpoint object attached to them in the form: {podname}-{governing-service-name}. Eg: mqsql-0.svc2.
+This sticky identity ensures that even if Pod restarts and gets new IP address, the name and endpoint remains the same, and hence the volume, which has the state information stored, can be reattached back to the correct Pod.
+
+Why is Sticky Identity Important?
+When databases scale, they add Slave Pods to only read data. This is because if two Pods write on the same data, it will create data inconsistency. Hence, one Pod is always the master node, the other slaves. The slave Pods get replicated data of the master Pod and are called Read Replicas. Do note that they do not read the same data store as that of master node. This is because too many reads from the same data store could slow down the actual database operation such as update, write etc. Additionally, creating read replicas can increase data fetch operations.
+
+
+Basic Database Scaling
+Hence, data is replicated across Slave’s storage solution and is continuously synced with master node. Now, storage stores the data, along with the state of the Pod, such as master-node, slave-node etc. Hence, Sticky Identity becomes important here.
+
+It is because of sticky identity only, that if the Pod restarts, the correct storage holding the correct state information of the Pod gets reattached back to the correct Pod. So if the master Pod gets rescheduled, it gets its master data store back. Similarly, slave Pods gets its state information and replicated data back whenever it gets rescheduled because of sticky identity.
+
+Another important use-case of sticky identity is that whenever new Pod comes online, it always clones data from the previous slave Pod, and not any other Pod. This would only be possible if we have sticky identity to identity previous slave Pod. Hence, by ordinal numbering, a new slave Pod can replicate data easily from the previous Pod.
+
+
+Sticky Identity ensures correct PV attaches to correct Pod
+It is important here to use Remote Storage solution. This is because Pods can get rescheduled across Nodes. Hence if the storage is created locally in a Node, it would create problems in reattachment. Cloud Providers provide volumes that are stored remotely and are persistent even if all Pods die. This is the best way to maintain sticky identity of the Pods using storage solution.
+
+Operators and Custom Resource Definitions:
+For Deployments, Pod replicas are automatically created using Kubernetes internal Control Loop mechanism, which matches the desired state with the current state. Hence, once Deployments are created, you would not need manual intervention as all small adjustments such as Updates, Scaling etc. are managed by Kubernetes itself.
+
+However, for Statefulsets, as we have seen, each Pod replicas are different with their own identity, and need to be updated and destroyed in order. Additionally, each datastore is replicated and needs to be continuously synchronized. Furthermore, the steps to do these are different for different applications. Eg: MySql has its own way of data replication, Elasticsearch has its own method for deployment. Hence, a lot of manual intervention is required, as no standard solution can exist for all.
+
+This is where Operators come into picture to implement and manage Statefulsets internal operations. Essentially, Operators are extensions to Kubernetes that replaces this manual intervention with a software “operator”. Hence, human operators who have deep knowledge of deployments, replications etc., create these software components that essentially automates the same tasks.
+
+Operators need 3 main things to work.
+
+Domain Knowledge: Each component has its own functionalities. MySql replicates differently, Elasticsearch deploys differently. Hence deep domain knowledge is required to program or rather automate the “operations” of these components.
+Custom Resource Definitions: Operators uses using something called Custom Resources. These Custom resources are extension to Kubernetes API itself, and are generally modification of Kubernetes installation. Think of it as Mods. So just like Pods are internal Kubernetes API objects that manages Deployments, an application which takes and restores backups of application’s state could be a custom resource API object which extends Kubernetes API.
+Control Loop Mechanism: You would need to create a separate controller object using control loop mechanisms. This object tracks the custom resources created for custom operations for any changes using control loops, almost along the same lines as internal Kubernetes controller does. Hence, using custom controllers, you could create a new replica for statefulsets if it dies.
+Using the above 3 mechanism, you could deploy your own operator by linking controllers to one or more custom resources.
+
+
+Manual Scheduling and Other Concepts:
+Kubernetes provides a mechanism to provide manual scheduling using taints, tolerance and Node affinity.
+
+Manual scheduling using Taints and Tolerance:
+These are mechanisms of manual scheduling to a particular Node. Taints allows a Node to accept only certain Pods which have Tolerance keyword allowed to it.
+
+Hence, for eg:, if you Taint a node using command: kubectl taint nodes node1 key1=value1:NoExecute, only Pods which has the matching tolerance like the one given below would be able to be scheduled in that node:
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+    env: test
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    imagePullPolicy: IfNotPresent
+  tolerations:
+  - key: "key1"
+    operator: "Equal"
+    value: "value1"
+    effect: "NoExecute"
+Do note that Taints and Tolerance only allow certain Pods to not be scheduled in certain Nodes. The tolerant Pod could very well be scheduled in a different node.
+
+Manual scheduling using Node Affinity:
+Node Affinity handles the previous drawback of Taints and Tolerance, and directly restrict a Pod to a particular Node. It works exactly like Taints and Tolerance. You apply a label to a particular node using command: kubectl label nodes <your-node-name> disktype=ssd. Then, using Node Affinity selector in the Pod definition, the Pod will only be scheduled in that particular node, effectively tying it to that Node. Eg Yaml:
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: disktype
+            operator: In
+            values:
+            - ssd            
+  containers:
+  - name: nginx
+    image: nginx
+    imagePullPolicy: IfNotPresent
+There are 2 keywords for this:
+
+requiredDuringSchedulingIgnoredDuringExecution: This means that pod will get scheduled only on a node that has that particular label
+preferredDuringSchedulingIgnoredDuringExecution: This means that the pod will prefer a node that has that particular label.
+Do note that Node Affinity only restricts certain Pods to certain Nodes. Pods which do not have this label could also very well be scheduled in the same Nodes.
+
+Hence, generally a combination of Taints and Tolerance and NodeAffinity is used to do manual scheduling.
+
+Pods vs ReplicaSets vs Deployments vs Daemonsets:
+Pods: They are the lowest unit of abstraction available in Kubernetes, that abstracts containers. Pods are needed to solve multiple port issues in a Node i.e managing thousands of containers using thousands of ports. Pods abstract ports and other resources of a container by creating a logical “virtual host”, with its own virtual ethernet and network namespace. It implements this using same aspect of containerization and OS level virtualization: Cgroups, Namespaces and File Systems. Think of Pods as grouping of containers with shared volume and namespaces. Hence, Kubernetes never deals directly with containers, and always uses Pods to abstract it.
+ReplicaSets: One step higher than Pods, ReplicaSets guarantees the availability of a specified number of identical Pods. This is to ensure High Availability of Pods and application. However, updating ReplicaSets is a problem. Eg: To create a v2 of RC, you would need to scale down RCv1 manually, then create and scale up RCv2 manually. This “rolling update” requires manual intervention and creates downtime. Hence, ReplicaSets are most suitable for jobs which require custom updates.
+Deployments: The highest level of abstraction offered by Kubernetes. Deployments manages and owns Replicasets, and addresses the manual update drawback by providing declarative server side updates to Pods along with many other features. Using deployments, you would not need to manage ReplicaSets manually. Rather, ReplicaSets are used by deployments to orchestrate Pod creation, deletion and updates. Deployment has a lot of different strategies for updating, a list of which could be referenced here.
+DaemonSet: Daemonset ensures that all nodes (or some nodes if configured) runs a copy of the Pod. This is also ensured with scaling, so if more Nodes are added, Pods are scheduled in them. Daemonsets are generally used if you have for example a logging mechanism that needs to run on all nodes. Its spec is exactly like Pods specifications, except you provide the Kind as Daemonset.
+RBACs:
+Just like Cloud providers like AWS have IAM roles to restrict access, Kubernetes provides Role Based Access Control mechanism to control access to Kuberentes resources.
+
+The RBAC API declares four kinds of Kubernetes object:
+
+Role: It describes the permissions that is written by a set of rules. Rules are always ALLOW, hence there is no Deny rule. The scope is always namespaced, hence Role is always applicable to namespaced resources such as Pods.
+ClusterRole: Same as Role, except the scope is ClusterWide. Hence, it is applied to cluster wide resources such as secrets, volumes etc.
+RoleBinding: Binding the created role to namespaced objects.
+ClusterRoleBinding: Binding the created role to cluster scoped objects.
+
+https://medium.com/@shrut_terminator/the-all-mighty-guide-to-devops-interview-questions-kubernetes-edition-a33da07a3b00
