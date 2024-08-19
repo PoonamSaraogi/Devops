@@ -1,0 +1,255 @@
+Valid anagrams: class Solution:
+    def isAnagram(self, s: str, t: str) -> bool:
+        s1 = {}
+        t1 = {}
+        if len(s) != len(t):
+            return False
+        for i in s:
+            s1[i] = s1.get(i, 0) + 1
+        for i in t:
+            t1[i] = t1.get(i, 0) + 1
+        if s1 == t1:
+            return True   # Example input
+nums = [2, 7, 11, 15]
+target = 9
+
+# Brute-force solution using basic Python
+for i in range(len(nums)):
+    for j in range(i + 1, len(nums)):
+        if nums[i] + nums[j] == target:
+            print(i, j)  # Print the indices
+            break
+ 
+## is palindrome: class Solution:
+    def isPalindrome(self, x: int) -> bool:
+        original = x
+        reverse_org = 0
+        while x > 0:
+            d = x % 10
+            reverse_org = reverse_org * 10 + d
+            return reverse_org
+        if reverse_org == original:
+            return Ture
+        else: 
+            return False
+  ## leet code roman to int
+class Solution:
+    def romanToInt(self, s: str) -> int:
+        dict1 = {
+            'I': 1,
+            'V': 5,
+            'X': 10,
+            'L': 50,
+            'C': 100,
+            'D': 500,
+            'M': 1000,
+        }
+        
+        ans = 0
+        end = 0 # Initialize the variable end
+       
+        for i in s[::-1]:  # Traverse the string in reverse
+            if dict1[i] >= end:
+                ans += dict1[i]
+            else:
+                ans -= dict1[i]
+            end = dict1[i]  # Update end to the current value
+        
+        return ans  # Return the final result
+
+Longest common prefix: class Solution:
+    def longestCommonPrefix(self, strs: List[str]) -> str:
+        pref = strs[0]
+        plen = len(strs[0])
+
+        for s in strs[1:]:
+            while pref != s[0:plen]:
+                pref = pref[0:(plen-1)]
+                plen = plen -1
+        return pref
+
+Bubble sort:
+class Solution:
+    def sortColors(self, nums: List[int]) -> None:
+        """
+        Do not return anything, modify nums in-place instead.
+        """
+        for i in range(len(nums)-1-i):
+            for j in range(len(nums)-1):
+                if nums[j] > nums [j+1]:
+                    nums[j],nums[j+1] = nums[j+1],nums[j]
+
+Selection sort for non duplicate numbers:
+Sort an ArraySort an Array class Solution:
+    def sortArray(self, nums: List[int]) -> List[int]:
+        for i in range(len(nums)):
+             min_ind = i
+             for j in range(i+1, len(nums)):
+                if nums[j] < nums[min_ind]:
+                    nums[j],nums[min_ind] = nums[min_ind],nums[j]
+        return nums
+
+n = len(nums)
+        for i in range(n):
+            # Assume the minimum is at the current position
+            min_index = i
+            # Find the minimum element in the remaining unsorted portion
+            for j in range(i + 1, n):
+                if nums[j] < nums[min_index]:
+                    min_index = j
+            # Swap the found minimum element with the element at position i
+            nums[i], nums[min_index] = nums[min_index], nums[i]
+        return nums
+
+_______________________________________________________________________________________
+# Mapping two lists into a dictionary keys = ['name', 'age', 'city'] values = ['Alice', 30, 'New York'] # Using zip() to pair elements and dict() to create the dictionary
+ result_dict = dict(zip(keys, values))
+
+_______________________________________________________________________________________
+def unique_pairs(arr):
+    # Step 1: Create a set of unique elements
+    unique_elements = list(set(arr))
+    
+    # Step 2: Generate pairs of unique elements
+    pairs = []
+    n = len(unique_elements)
+    
+    for i in range(n):
+        for j in range(i + 1, n):
+            pairs.append((unique_elements[i], unique_elements[j]))
+    
+    return pairs
+# Example usage:
+arr = [1, 2, 3, 4, 2, 3, 1, 5]
+result = unique_pairs(arr)
+print(result)
+
+———————————————————————————————————————————————————————-
+def caesarCipher(s, k):
+    # Write your code here
+    l = []
+    for i in s:
+        l.append(ord(char))
+       For converting string in list and in ascii value as string is immutable and list is mutable 
+ Small a-z is 65 to 90
+A-Z is 97-122
+
+97 + (l[i] - 97 + k) % 26:
+* l[i] - 97 + k: Adds the shift value k to the position of the letter. This determines where the new letter should be after shifting.
+* % 26: This is the modulus operation. It ensures that if the shift takes us past 'z', we wrap around to the start of the alphabet. For example, if we start at 'z' (position 25) and shift by 1, we should end up at 'a' (position 0).
+
+
+_________________________________________________________________________________________
+
+Memory updated
+The line for i, j in zip(s, target): is a Python construct that allows you to iterate over two sequences (like strings, lists, etc.) simultaneously. Let’s break this down in a way that will be easy to remember.
+What’s Happening Here?
+* zip(s, target): This pairs up the elements of s and target one by one. If s = "abc" and target = "def", then zip(s, target) creates pairs like ('a', 'd'), ('b', 'e'), and ('c', 'f').
+* for i, j in zip(s, target):: This loop will go through each pair created by zip. In the first iteration, i will be 'a' and j will be 'd', and so on.
+_________________________________________________________________________________________
+ Convert any string to set: #
+
+def pangrams(s):
+    ha = set(s.lower()) - set(" ")
+    if len(ha) == 26:
+        return "pangram"
+    else:
+        return "not pangram"
+_________________________________________________________________________________________ aabbceecf: o/p f def superReducedString(s):
+    reduced = []
+    for i in range(len(s)):
+        if len(reduced)==0 or reduced[-1] != s[i]:
+             reduced.append(s[i])
+        else:
+             reduced.pop()
+            
+    if len(reduced) == 0:
+        return "Empty String"
+    else:
+        return "".join(reduced)
+________________________________________________________________________________________
+def twoStrings(s1, s2):
+    if set(s1) & set(s2):
+        return "YES"
+#convert to set & means intersection
+
+
+______________________________________________________________________________________________________________________________________________
+______________________________________________________________________________________________________________________________________________
+￼
+
+To find and print the IP address that appears the most frequently in an access log using PythonTo find and print the IP address that appears the most frequently in an access log using Python
+￼
+
+
+Import request API(url)-pull
+Json to dictionary—> response.json() print()
+
+￼
+https://github.com/iam-veeramalla/python-for-devops/blob/main/Day-11/04-demo-github-integration.py
+
+￼
+￼
+￼
+￼
+  s = "AABHBHBAA"
+dict1 = {}
+
+# Counting occurrences of each character
+for ch in s:
+    dict1[ch] = dict1.get(ch, 0) + 1
+# Find the maximum frequency (i.e., the maximum number of times an element is repeated) 
+max_count = max(dict1.values()) 
+return max_count
+￼
+
+# Printing the result
+for k, v in dict1.items():
+    print('{} occurs {} times'.format(k, v))
+For the string s = "AABHBHBAA", the output will be:
+A occurs 4 times
+B occurs 3 times
+H occurs 2 times
+   For anagrams: if sorted(s1)==sorted(s2)  for palindrome  if s == s[::-1]  how to check if program is hassle, if l = [12,34,5] and t= (9,7,7.))
+print(isinstance(l, collections.hasbale) is false print(hash(t)) s = {10,20} s.add(t)  in dictionaries , they elements will be arranged according to the hash code of keys, so keys should be hashable
+
+
+FILES: In python 2 types of file binary(ing, mp4, audio or video) and text  opening a file: open()
+D = open(“filename”, ‘mode’) mode = r, w , a, a+, r+, w+, x)	 file pointer is always point to beginning of file.  r= if reading and file doesn’t exist then you will get FileNotFoundError w= but while using w, it will replace old data and if file doesn’t exist it will create one a = same like w , just append the data rather than override
+r+ = read and write and old data will be over written, won’t create the file, will throw FileNotFoundError
+w+ = old data over written and create file , write and read
+a+= append and read, it won’t overwrite
+X= exclusive mode, if file already exists it will throw file exist error
+ note: Default mode 
+
+For binary files just add b rb, wb, ab, a+b, w+b, x+b  f = open(‘file.txt’, r)    perform the actions f.close()  Various properties of file: f.name()
+F.mode()
+F.closed()— return boolean all below
+F.readable
+f.writeable   write operation on file: if  string is one f.write(str)
+F.writelines(line of lines) when passing list and tuple in input order will be there , but set order won’t be there
+When passing dict only the keys would be added, given condition ket should be only key type in case you wanna pass value , then f.writelines(d.value) — so explicitly we need to mention d.value  read operation on file: f.read() —read full file
+f.read(n) —read n character, if file has durga\n software\n and first 10 charecter return we want then it will be Durgasoft and \n is considered as one character, also if pass any -ve value -1, -10, -100, still will read entire file. And even for f.read(100000)
+f.readline() — read only 1 line
+f.readlines() — read all lines into a list  code to read data line by line f = open(‘abc.text’, ‘r’) line = f.readline()
+While line != ‘  ‘:   print(line, end=‘’)
+  Line = f.readline()
+f.close()   read to lines
+f = open(‘abc.text’, ‘r’) line = f.readline()
+For l In line:   print(line, end=‘’)
+F.close   with ‘with’ statement It will automatically close the file once controls reached the end of block wherever using write operation, compulsory use \n syntax:  with open (‘abc’.txt, ‘w’) as f:                            f.write(‘Durga/n’)  telll() - prints the current cursor position from beginning of the file
+f.tell()  seek()- to move cursor to one in python2 : seek(offset, fromwhere) fromwhere as 0 = beginning of the file
+1 = from current position
+2 = end of file in python3: its just beginning of the file
+Seek(0)- tp move cursor to beginning of file  how to check if file exist or not:
+Import os
+f=input(“”enter”) os.file.isfile(f)  pillow library use to handle binary file  writing csv file: import csv
+With open(‘abc.csv’’, ‘w’, newline=‘’) as f: ##### if u won’t have newline then will unnecessarily create new line       w=csv.writer(f) —  to write in cs file
+      W.writerow([‘employe_name’,’employeeaddr,”sal”’])
+      While True:
+                employe_name = (input(“entername”)
+                sal= int(input(“sal”))
+                W.writerow([‘employe_name’,’employeeaddr,”sal”’])
+                Option= input(“do u wanna enter more:”)
+                 If option.lower()== “no”:                         break
+  
