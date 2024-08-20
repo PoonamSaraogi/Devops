@@ -177,20 +177,6 @@ def twoStrings(s1, s2):
 ______________________________________________________________________________________________________________________________________________
 ______________________________________________________________________________________________________________________________________________
 ￼
-
-To find and print the IP address that appears the most frequently in an access log using PythonTo find and print the IP address that appears the most frequently in an access log using Python
-￼
-
-
-Import request API(url)-pull
-Json to dictionary—> response.json() print()
-
-￼
-https://github.com/iam-veeramalla/python-for-devops/blob/main/Day-11/04-demo-github-integration.py
-
-￼
-￼
-￼
 ￼
   s = "AABHBHBAA"
 dict1 = {}
@@ -212,6 +198,74 @@ B occurs 3 times
 H occurs 2 times
    For anagrams: if sorted(s1)==sorted(s2)  for palindrome  if s == s[::-1]  how to check if program is hassle, if l = [12,34,5] and t= (9,7,7.))
 print(isinstance(l, collections.hasbale) is false print(hash(t)) s = {10,20} s.add(t)  in dictionaries , they elements will be arranged according to the hash code of keys, so keys should be hashable
+
+
+key=lambda x: (len(x), x): The key argument in the sort() function specifies a function that takes one argument and returns a value to be used for sorting.
+* len(x): The primary criterion for sorting is the length of each element. So, the list will be sorted by the length of the strings.
+* x: The secondary criterion is the element itself. This means that if two elements have the same length, they will be sorted lexicographically (i.e., in dictionary order).
+_______________________________________________________________________________________________
+Insertion sorting:
+def runningTime(arr):
+    shift = 0
+    for j in range(1, len(arr)):
+        key = arr[j]
+        i = j
+        while i > 0 and arr[i - 1] > key:
+            arr[i] = arr[i - 1]
+            shift += 1
+            i -= 1
+        arr[i] = key
+    return shift  # Return the total number of shifts
+
+_________________________________________________________________________________________
+Two Sum def twoSum(nums):
+	seen = {}
+         For i,num in enumerate(nums):
+		if target - num in seen:
+			return(seen[target-num], i)
+                  Elif num not in seen:
+			seen[num] = i    _________________________________________________________________________________________
+Remove duplicates from array:         def remove_duplicates(arr):
+               return list(set(arr))
+
+_________________________________________________________________________________________
+  def longest_non_repeating_substring(arr):
+    start = 0
+    max_length = 0
+    seen = {}
+    longest_substring = []
+
+    for end, char in enumerate(arr):
+        if char in seen and seen[char] >= start:
+            # Update the start to the right of the last occurrence of char
+            start = seen[char] + 1
+        
+        # Update the last seen index of the character
+        seen[char] = end
+        
+        # Calculate the current length of the non-repeating substring
+        current_length = end - start + 1
+        
+        # Update max_length and store the longest substring
+        if current_length > max_length:
+            max_length = current_length
+            longest_substring = arr[start:end + 1]
+
+    return longest_substring
+_________________________________________ def distinct_elements(arr1, arr2): # Convert both arrays to sets
+ set1 = set(arr1) set2 = set(arr2) 
+# Find the symmetric difference of both sets distinct = set1.symmetric_difference(set2) 
+# Convert the result to a list 
+return list(distinct)
+
+
+
+
+
+
+
+
+
 
 
 FILES: In python 2 types of file binary(ing, mp4, audio or video) and text  opening a file: open()
