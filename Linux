@@ -1,0 +1,119 @@
+Linux notes
+
+￼
+
+
+Inode: An inode (Index Node) is a fundamental concept in Unix and Linux filesystems. It stores metadata about a file or directory, excluding the file's name or its actual data.
+
+
+System Monitoring and Management Commands
+top
+* Purpose: Provides a real-time, dynamic view of running system processes, including CPU and memory usage.
+* Scenario: You need to identify which processes are consuming the most CPU or memory on a server to troubleshoot performance issues. Using top, you can quickly see process IDs, CPU and memory usage, and other key metrics, allowing you to make informed decisions about terminating processes or adjusting resources.
+htop
+* Purpose: An enhanced, user-friendly version of top with a more intuitive interface, color coding, and additional features like process tree visualization.
+* Scenario: When managing multiple processes, htop allows you to interactively navigate through processes, filter them, and perform actions such as killing a process directly from the interface, making it ideal for system administrators who need to monitor and manage processes efficiently.
+ps
+* Purpose: Displays a snapshot of current processes, allowing you to see process status, IDs, and associated users.
+* Scenario: Use ps to check if a specific service or application is running and retrieve its process ID (PID) for further management or debugging. For instance, if a web server isn't responding, you can use ps aux | grep apache to confirm if the Apache service is running.
+df
+* Purpose: Reports filesystem disk space usage, showing available and used space on mounted filesystems.
+* Scenario: To prevent disk full errors, you regularly use df -h to monitor disk usage on your servers, ensuring sufficient free space for logs, backups, or application data.
+du
+* Purpose: Estimates file and directory space usage, allowing you to identify large files or directories consuming disk space.
+* Scenario: When a filesystem is nearing capacity, use du -sh /path/to/directory/* to pinpoint directories that are consuming the most space, enabling you to clean up unnecessary files or plan for additional storage.
+free
+* Purpose: Displays the total, used, and free memory in the system, including swap space.
+* Scenario: After noticing slow application performance, you check memory usage with free -m to determine if the system is running low on available memory, which might require adding more RAM or optimizing memory usage.
+uptime
+* Purpose: Shows how long the system has been running, along with the current load average.
+* Scenario: After a server reboot, you verify system stability by checking uptime to ensure that the server has been up for the expected period and that the load average is within acceptable limits.
+uname
+* Purpose: Prints system information, such as the kernel version, system architecture, and hostname.
+* Scenario: Before applying kernel-specific patches or software updates, you run uname -a to confirm the current kernel version and system architecture, ensuring compatibility.
+lsof
+* Purpose: Lists open files and the processes that opened them, which is useful for identifying file usage and diagnosing issues.
+* Scenario: If a filesystem cannot be unmounted, lsof can help identify which processes are holding files open, allowing you to terminate them or close the files to proceed with unmounting.
+netstat (Deprecated, use ss)
+* Purpose: Provides network statistics, showing active connections and listening ports (now deprecated in favor of ss).
+* Scenario: To troubleshoot network connectivity issues, netstat -tuln is used to verify which ports are open and listening on the server, helping diagnose service availability issues.
+ss
+* Purpose: Displays detailed socket statistics, replacing netstat for viewing network connections and listening ports.
+* Scenario: When securing a server, use ss -tuln to audit which services are listening on network ports, allowing you to close unnecessary ports and reduce the attack surface.
+ifconfig (Deprecated, use ip)
+* Purpose: Configures and displays network interface parameters (now deprecated in favor of ip).
+* Scenario: Use ifconfig to quickly view IP addresses and network configuration details for troubleshooting network connectivity issues (replaced by ip).
+ip
+* Purpose: A versatile command for configuring and displaying network interfaces, routing, and tunnels.
+* Scenario: Use ip addr show to display IP addresses and network interface details, and ip route show to check routing table entries, aiding in network setup and troubleshooting.
+ping
+* Purpose: Tests network connectivity between the local system and a remote host by sending ICMP echo requests.
+* Scenario: To check if a server is reachable over the network, ping is used to send packets to the server’s IP address, verifying connectivity and response times.
+traceroute
+* Purpose: Traces the path packets take to a network destination, showing each hop along the way.
+* Scenario: When experiencing network latency, traceroute helps identify where delays occur in the network path, allowing for targeted troubleshooting with ISPs or network teams.
+vmstat
+* Purpose: Reports virtual memory statistics, including process, memory, I/O, and CPU usage.
+* Scenario: To identify performance bottlenecks, vmstat provides insights into CPU usage, memory swapping, and I/O wait times, allowing you to diagnose resource contention issues.
+iostat
+* Purpose: Reports CPU and I/O statistics, helping assess disk and network performance.
+* Scenario: During high disk usage, use iostat to monitor disk I/O rates and CPU load, identifying whether disk activity is a performance bottleneck, and informing decisions on optimizing or scaling resources.
+
+
+￼
+sed -i '/url=jdbc:mysql:\/\/localhost:3306\/mydb/s|localhost:3306/mydb|prod-db-server:3306/proddb|' app.conf
+
+
+
+
+
+
+
+++++++++++++++++++++++++++++++++++
+EBS Volume Types:
+* General Purpose SSD (gp3, gp2): gp3 offers baseline 3,000 IOPS and 125 MiB/s, scalable to 16,000 IOPS and 1,000 MiB/s. gp2 provides 3 IOPS per GiB, with the ability to burst up to 16,000 IOPS.
+* Provisioned IOPS SSD (io2, io1): High performance with up to 64,000 IOPS.
+* Throughput Optimized HDD (st1): For frequently accessed, throughput-intensive workloads with baseline 40 MiB/s per TB.
+* Cold HDD (sc1): For infrequently accessed data with baseline 12 MiB/s per TB.
+
+
+
+
+Difference Between ALB and NLB:
+* ALB (Application Load Balancer): Operates at Layer 7 (HTTP/HTTPS). It provides advanced routing features based on URL, host, and path, and supports WebSocket and HTTP/2.
+* NLB (Network Load Balancer): Operates at Layer 4 (TCP/UDP). It handles millions of requests per second with low latency and supports static IP addresses.
+Why Choose ALB or NLB:
+* ALB: Ideal for applications that need advanced request routing, SSL termination, and WebSocket support.
+* NLB: Suitable for applications requiring ultra-high performance and low latency.
+
+S3 Storage Classes:
+* Standard: High durability and availability.
+* Intelligent-Tiering: Automatically moves data between two access tiers.
+* Standard-IA (Infrequent Access): For infrequently accessed data.
+* One Zone-IA: Lower-cost option for infrequent access in a single AZ.
+* Glacier: Low-cost storage for data archiving.
+* Glacier Deep Archive: Lowest-cost storage for long-term data archiving.
+
+
+CORS stands for Cross-Origin Resource Sharing. It's a security feature implemented by web browsers to control how web pages can request resources (like data) from a different domain than the one that served the web page.
+In simple terms:
+* When you visit a website (like example.com), your browser allows that site to request its own resources (like images or data from example.com).
+* If that website wants to request resources from another domain (like api.anotherdomain.com), it needs permission.
+* CORS provides a way for the server (api.anotherdomain.com) to specify who can access its resources.
+How it works:
+1. Request: Your browser sends a request to the server on a different domain.
+2. Response: The server responds with special headers that tell the browser whether it’s allowed to access the resources.
+3. Decision: Based on these headers, the browser either allows or blocks the request.
+Example: If example.com wants to fetch data from api.anotherdomain.com, the server at api.anotherdomain.com might respond with a header like:
+arduino
+Copy code
+Access-Control-Allow-Origin: https://example.com
+This tells the browser that example.com is allowed to access the resource.
+Why it’s important:
+* Security: Prevents unauthorized websites from accessing sensitive data.
+* Flexibility: Allows legitimate cross-origin requests when configured correctly.
+In essence, CORS helps maintain the security of web applications by ensuring that only authorized domains can access resources from other domains.
+
+
+
+
